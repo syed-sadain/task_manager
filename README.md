@@ -1,4 +1,4 @@
-#📅 TaskFlow — Task Management Web App
+## 📅TaskFlow — Task Management Web App
 
 A full-stack web application with Python Flask backend, MySQL database, JWT authentication, and a sleek dark-themed frontend.
 

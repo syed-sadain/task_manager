@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TaskFlow · Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0a0f; --surface: #111118; --card: #18181f; --card2: #1e1e28;
+      --border: #2a2a38; --accent: #6c63ff; --accent2: #ff6584; --text: #e8e8f0;
+      --muted: #6b6b80; --success: #4ade80; --warn: #fbbf24;
+    }
+
+    body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text);
+      min-height:100vh; display:flex; flex-direction:column; }
+
+    /* ── Navbar ──────────────────────────────────────────── */
+    nav {
+      background:var(--surface); border-bottom:1px solid var(--border);
+      padding:0 2rem; height:64px; display:flex; align-items:center;
+      justify-content:space-between; position:sticky; top:0; z-index:100;
+    }
+    .nav-brand { font-family:'Syne',sans-serif; font-weight:800; font-size:1.3rem;
+      display:flex; align-items:center; gap:.5rem; }
+    .nav-brand-icon { width:32px; height:32px; background:linear-gradient(135deg,var(--accent),var(--accent2));
+      border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:.9rem; }
+    .nav-right { display:flex; align-items:center; gap:1rem; }
+    .nav-user { color:var(--muted); font-size:.88rem; }
+    .btn-logout { padding:.4rem .9rem; background:transparent; border:1px solid var(--border);
+      border-radius:8px; color:var(--muted); font-family:'DM Sans',sans-serif; font-size:.85rem;
+      cursor:pointer; transition:all .2s; }
+    .btn-logout:hover { border-color:var(--accent2); color:var(--accent2); }
+
+    /* ── Layout ──────────────────────────────────────────── */
+    .main { flex:1; max-width:1100px; margin:0 auto; width:100%; padding:2rem; }
+
+    /* ── Stats bar ───────────────────────────────────────── */
+    .stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:2rem; }
+    .stat-card {
+      background:var(--card); border:1px solid var(--border); border-radius:14px;
+      padding:1.2rem 1.5rem; position:relative; overflow:hidden;
+      animation: fadeIn .4s ease both;
+    }
+    .stat-card::before { content:''; position:absolute; inset:0;
+      background:linear-gradient(135deg,var(--accent-tint,transparent),transparent); opacity:.08; }
+    .stat-card.pending   { --accent-tint: #fbbf24; }
+    .stat-card.progress  { --accent-tint: #6c63ff; }
+    .stat-card.done      { --accent-tint: #4ade80; }
+    .stat-num { font-family:'Syne',sans-serif; font-weight:800; font-size:2rem; }
+    .stat-lbl { color:var(--muted); font-size:.8rem; text-transform:uppercase; letter-spacing:.06em; margin-top:.2rem; }
+    .stat-dot { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:.4rem; }
+
+    /* ── Toolbar ─────────────────────────────────────────── */
+    .toolbar { display:flex; gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap; align-items:center; }
+    .search-box { flex:1; min-width:200px; position:relative; }
+    .search-box input { width:100%; padding:.7rem 1rem .7rem 2.5rem; background:var(--card);
+      border:1px solid var(--border); border-radius:10px; color:var(--text);
+      font-family:'DM Sans',sans-serif; font-size:.9rem; outline:none; transition:border-color .2s; }
+    .search-box input:focus { border-color:var(--accent); }
+    .search-icon { position:absolute; left:.8rem; top:50%; transform:translateY(-50%);
+      color:var(--muted); font-size:.9rem; pointer-events:none; }
+
+    .filter-pills { display:flex; gap:.5rem; flex-wrap:wrap; }
+    .pill { padding:.45rem .9rem; border-radius:20px; border:1px solid var(--border);
+      background:transparent; color:var(--muted); font-family:'DM Sans',sans-serif;
+      font-size:.82rem; cursor:pointer; transition:all .2s; white-space:nowrap; }
+    .pill:hover { border-color:var(--accent); color:var(--text); }
+    .pill.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+
+    .btn-new { padding:.6rem 1.3rem; background:linear-gradient(135deg,var(--accent),#8b82ff);
+      border:none; border-radius:10px; color:#fff; font-family:'Syne',sans-serif;
+      font-weight:700; font-size:.9rem; cursor:pointer; transition:transform .15s, box-shadow .15s;
+      white-space:nowrap; }
+    .btn-new:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(108,99,255,.4); }
+
+    /* ── Task list ───────────────────────────────────────── */
+    .tasks-grid { display:flex; flex-direction:column; gap:.8rem; }
+
+    .task-card {
+      background:var(--card); border:1px solid var(--border); border-radius:14px;
+      padding:1.2rem 1.5rem; display:flex; align-items:center; gap:1rem;
+      animation:fadeIn .3s ease both; transition:border-color .2s, transform .2s;
+    }
+    .task-card:hover { border-color:rgba(108,99,255,.4); transform:translateX(3px); }
+    @keyframes fadeIn { from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);} }
+
+    .task-status-dot {
+      width:10px; height:10px; border-radius:50%; flex-shrink:0;
+      background:var(--muted);
+    }
+    .task-status-dot.Pending     { background:var(--warn); box-shadow:0 0 8px rgba(251,191,36,.5); }
+    .task-status-dot.In.Progress { background:var(--accent); box-shadow:0 0 8px rgba(108,99,255,.5); }
+    .task-status-dot.Completed   { background:var(--success); box-shadow:0 0 8px rgba(74,222,128,.5); }
+
+    .task-body { flex:1; min-width:0; }
+    .task-title { font-weight:600; font-size:.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .task-title.done { text-decoration:line-through; color:var(--muted); }
+    .task-desc { color:var(--muted); font-size:.82rem; margin-top:.2rem;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    .task-meta { display:flex; align-items:center; gap:.8rem; flex-shrink:0; }
+    .badge { padding:.25rem .7rem; border-radius:20px; font-size:.72rem; font-weight:500; }
+    .badge.Pending     { background:rgba(251,191,36,.12); color:var(--warn); }
+    .badge.In.Progress { background:rgba(108,99,255,.15); color:#a5a0ff; }
+    .badge.Completed   { background:rgba(74,222,128,.12); color:var(--success); }
+
+    .due-date { color:var(--muted); font-size:.78rem; }
+    .due-date.overdue { color:var(--accent2); }
+
+    .task-actions { display:flex; gap:.4rem; }
+    .btn-icon { width:32px; height:32px; display:flex; align-items:center; justify-content:center;
+      border-radius:8px; border:1px solid var(--border); background:transparent;
+      color:var(--muted); cursor:pointer; font-size:.85rem; transition:all .2s; }
+    .btn-icon:hover.edit { border-color:var(--accent); color:var(--accent); }
+    .btn-icon:hover.del  { border-color:var(--accent2); color:var(--accent2); }
+
+    .empty-state { text-align:center; padding:4rem 2rem; }
+    .empty-icon { font-size:3rem; margin-bottom:1rem; opacity:.4; }
+    .empty-state p { color:var(--muted); }
+
+    /* ── Modal ───────────────────────────────────────────── */
+    .modal-overlay {
+      position:fixed; inset:0; background:rgba(0,0,0,.7); backdrop-filter:blur(4px);
+      display:none; align-items:center; justify-content:center; z-index:200; padding:1rem;
+    }
+    .modal-overlay.open { display:flex; }
+
+    .modal { background:var(--card); border:1px solid var(--border); border-radius:20px;
+      padding:2rem; width:100%; max-width:480px; animation:modalIn .3s cubic-bezier(.16,1,.3,1); }
+    @keyframes modalIn { from{opacity:0; transform:scale(.95);} to{opacity:1; transform:scale(1);} }
+
+    .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; }
+    .modal-title { font-family:'Syne',sans-serif; font-weight:700; font-size:1.2rem; }
+    .modal-close { background:none; border:none; color:var(--muted); font-size:1.2rem;
+      cursor:pointer; width:32px; height:32px; display:flex; align-items:center; justify-content:center;
+      border-radius:8px; transition:background .2s; }
+    .modal-close:hover { background:var(--surface); color:var(--text); }
+
+    .form-group { margin-bottom:1.2rem; }
+    label { display:block; font-size:.8rem; font-weight:500; color:var(--muted);
+      text-transform:uppercase; letter-spacing:.08em; margin-bottom:.5rem; }
+    input, textarea, select {
+      width:100%; padding:.75rem 1rem; background:var(--surface); border:1px solid var(--border);
+      border-radius:10px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:.92rem;
+      outline:none; transition:border-color .2s; }
+    textarea { resize:vertical; min-height:80px; }
+    select option { background:var(--surface); }
+    input:focus, textarea:focus, select:focus { border-color:var(--accent); }
+
+    .modal-actions { display:flex; gap:.8rem; justify-content:flex-end; margin-top:1.5rem; }
+    .btn-cancel { padding:.7rem 1.3rem; background:transparent; border:1px solid var(--border);
+      border-radius:10px; color:var(--muted); font-family:'DM Sans',sans-serif; cursor:pointer;
+      transition:all .2s; }
+    .btn-cancel:hover { border-color:var(--text); color:var(--text); }
+    .btn-save { padding:.7rem 1.5rem; background:linear-gradient(135deg,var(--accent),#8b82ff);
+      border:none; border-radius:10px; color:#fff; font-family:'Syne',sans-serif;
+      font-weight:700; cursor:pointer; transition:box-shadow .2s; }
+    .btn-save:hover { box-shadow:0 4px 16px rgba(108,99,255,.4); }
+
+    /* ── Toast ───────────────────────────────────────────── */
+    .toast { position:fixed; bottom:2rem; right:2rem; padding:.8rem 1.3rem;
+      background:var(--card); border:1px solid var(--border); border-radius:12px;
+      font-size:.88rem; z-index:300; opacity:0; transform:translateY(10px);
+      transition:all .3s; display:flex; align-items:center; gap:.5rem; }
+    .toast.show { opacity:1; transform:translateY(0); }
+    .toast.success { border-color:rgba(74,222,128,.3); }
+    .toast.error   { border-color:rgba(255,101,132,.3); color:var(--accent2); }
+
+    @media(max-width:600px) {
+      .stats-grid { grid-template-columns:repeat(2,1fr); }
+      .task-meta { flex-direction:column; align-items:flex-end; gap:.3rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-brand">
+    <div class="nav-brand-icon">✦</div>
+    TaskFlow
+  </div>
+  <div class="nav-right">
+    <span class="nav-user" id="navUser"></span>
+    <button class="btn-logout" onclick="logout()">Sign Out</button>
+  </div>
+</nav>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-num" id="statTotal">—</div>
+      <div class="stat-lbl">Total Tasks</div>
+    </div>
+    <div class="stat-card pending">
+      <div class="stat-num" id="statPending" style="color:var(--warn)">—</div>
+      <div class="stat-lbl"><span class="stat-dot" style="background:var(--warn)"></span>Pending</div>
+    </div>
+    <div class="stat-card progress">
+      <div class="stat-num" id="statProgress" style="color:#a5a0ff">—</div>
+      <div class="stat-lbl"><span class="stat-dot" style="background:var(--accent)"></span>In Progress</div>
+    </div>
+    <div class="stat-card done">
+      <div class="stat-num" id="statDone" style="color:var(--success)">—</div>
+      <div class="stat-lbl"><span class="stat-dot" style="background:var(--success)"></span>Completed</div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="searchInput" placeholder="Search tasks…" oninput="handleSearch()">
+    </div>
+    <div class="filter-pills">
+      <button class="pill active" data-filter="" onclick="setFilter(this,'')">All</button>
+      <button class="pill" data-filter="Pending" onclick="setFilter(this,'Pending')">Pending</button>
+      <button class="pill" data-filter="In Progress" onclick="setFilter(this,'In Progress')">In Progress</button>
+      <button class="pill" data-filter="Completed" onclick="setFilter(this,'Completed')">Completed</button>
+    </div>
+    <button class="btn-new" onclick="openModal()">+ New Task</button>
+  </div>
+
+  <!-- Task list -->
+  <div class="tasks-grid" id="taskList"></div>
+
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">New Task</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-group">
+      <label>Title *</label>
+      <input type="text" id="fTitle" placeholder="Task title">
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <textarea id="fDesc" placeholder="Optional description…"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Due Date</label>
+      <input type="date" id="fDate">
+    </div>
+    <div class="form-group">
+      <label>Status</label>
+      <select id="fStatus">
+        <option value="Pending">Pending</option>
+        <option value="In Progress">In Progress</option>
+        <option value="Completed">Completed</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" onclick="saveTask()">Save Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── Auth guard ──────────────────────────────────────────────────────────────
+  const token = localStorage.getItem('token');
+  const user  = JSON.parse(localStorage.getItem('user') || '{}');
+  if (!token) window.location.href = '/login';
+
+  document.getElementById('navUser').textContent = `👤 ${user.username || 'User'}`;
+
+  // ── State ───────────────────────────────────────────────────────────────────
+  let currentFilter = '';
+  let searchTimeout = null;
+  let editingId     = null;
+
+  // ── API helper ──────────────────────────────────────────────────────────────
+  async function api(method, path, body) {
+    const opts = {
+      method,
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    };
+    if (body) opts.body = JSON.stringify(body);
+    const res  = await fetch('/api' + path, opts);
+    const data = await res.json();
+    if (res.status === 401) { logout(); return; }
+    return { ok: res.ok, data };
+  }
+
+  // ── Load data ───────────────────────────────────────────────────────────────
+  async function loadStats() {
+    const r = await api('GET', '/tasks/stats');
+    if (!r?.ok) return;
+    const s = r.data.stats;
+    document.getElementById('statTotal').textContent    = s.total;
+    document.getElementById('statPending').textContent  = s.pending;
+    document.getElementById('statProgress').textContent = s.in_progress;
+    document.getElementById('statDone').textContent     = s.completed;
+  }
+
+  async function loadTasks() {
+    const search = document.getElementById('searchInput').value.trim();
+    let url = '/tasks';
+    const params = [];
+    if (currentFilter) params.push(`status=${encodeURIComponent(currentFilter)}`);
+    if (search)        params.push(`search=${encodeURIComponent(search)}`);
+    if (params.length) url += '?' + params.join('&');
+
+    const r = await api('GET', url);
+    if (!r?.ok) return;
+    renderTasks(r.data.tasks);
+  }
+
+  function refresh() { loadStats(); loadTasks(); }
+
+  // ── Render ──────────────────────────────────────────────────────────────────
+  function renderTasks(tasks) {
+    const el = document.getElementById('taskList');
+    if (!tasks.length) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><p>No tasks found. Create your first one!</p></div>`;
+      return;
+    }
+    el.innerHTML = tasks.map(t => {
+      const dotClass  = t.status.replace(' ', '.');
+      const badgeClass = t.status.replace(' ', '.');
+      const titleClass = t.status === 'Completed' ? 'done' : '';
+      const today = new Date().toISOString().split('T')[0];
+      const isOverdue = t.due_date && t.due_date < today && t.status !== 'Completed';
+      const dueLbl = t.due_date
+        ? `<span class="due-date ${isOverdue?'overdue':''}">${isOverdue?'⚠ ':''} ${t.due_date}</span>`
+        : '';
+      return `
+        <div class="task-card">
+          <div class="task-status-dot ${dotClass}"></div>
+          <div class="task-body">
+            <div class="task-title ${titleClass}">${escHtml(t.title)}</div>
+            ${t.description ? `<div class="task-desc">${escHtml(t.description)}</div>` : ''}
+          </div>
+          <div class="task-meta">
+            <span class="badge ${badgeClass}">${t.status}</span>
+            ${dueLbl}
+          </div>
+          <div class="task-actions">
+            <button class="btn-icon edit" title="Edit" onclick="openEdit(${JSON.stringify(t).replace(/"/g,'&quot;')})">✏</button>
+            <button class="btn-icon del"  title="Delete" onclick="deleteTask(${t.id})">🗑</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Filter / Search ─────────────────────────────────────────────────────────
+  function setFilter(el, val) {
+    document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    currentFilter = val;
+    loadTasks();
+  }
+
+  function handleSearch() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(loadTasks, 300);
+  }
+
+  // ── Modal ───────────────────────────────────────────────────────────────────
+  function openModal() {
+    editingId = null;
+    document.getElementById('modalTitle').textContent = 'New Task';
+    document.getElementById('fTitle').value  = '';
+    document.getElementById('fDesc').value   = '';
+    document.getElementById('fDate').value   = '';
+    document.getElementById('fStatus').value = 'Pending';
+    document.getElementById('modalOverlay').classList.add('open');
+    setTimeout(() => document.getElementById('fTitle').focus(), 100);
+  }
+
+  function openEdit(task) {
+    editingId = task.id;
+    document.getElementById('modalTitle').textContent = 'Edit Task';
+    document.getElementById('fTitle').value  = task.title;
+    document.getElementById('fDesc').value   = task.description || '';
+    document.getElementById('fDate').value   = task.due_date    || '';
+    document.getElementById('fStatus').value = task.status;
+    document.getElementById('modalOverlay').classList.add('open');
+  }
+
+  function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('open');
+    editingId = null;
+  }
+
+  function handleOverlayClick(e) {
+    if (e.target === document.getElementById('modalOverlay')) closeModal();
+  }
+
+  // ── CRUD ────────────────────────────────────────────────────────────────────
+  async function saveTask() {
+    const title  = document.getElementById('fTitle').value.trim();
+    const desc   = document.getElementById('fDesc').value.trim();
+    const date   = document.getElementById('fDate').value;
+    const status = document.getElementById('fStatus').value;
+
+    if (!title) { showToast('Title is required', 'error'); return; }
+
+    const body = { title, description: desc || null, due_date: date || null, status };
+
+    let r;
+    if (editingId) {
+      r = await api('PUT', `/tasks/${editingId}`, body);
+    } else {
+      r = await api('POST', '/tasks', body);
+    }
+
+    if (!r?.ok) { showToast(r?.data?.error || 'Error saving task', 'error'); return; }
+
+    closeModal();
+    showToast(editingId ? 'Task updated ✓' : 'Task created ✓', 'success');
+    refresh();
+  }
+
+  async function deleteTask(id) {
+    if (!confirm('Delete this task?')) return;
+    const r = await api('DELETE', `/tasks/${id}`);
+    if (!r?.ok) { showToast('Error deleting task', 'error'); return; }
+    showToast('Task deleted', 'success');
+    refresh();
+  }
+
+  // ── Toast ───────────────────────────────────────────────────────────────────
+  let toastTimer;
+  function showToast(msg, type = 'success') {
+    const el = document.getElementById('toast');
+    el.textContent = type === 'success' ? `✓ ${msg}` : `✕ ${msg}`;
+    el.className   = `toast ${type} show`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+  }
+
+  function logout() {
+    localStorage.clear();
+    window.location.href = '/login';
+  }
+
+  // ── Keyboard shortcuts ──────────────────────────────────────────────────────
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeModal();
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); openModal(); }
+  });
+
+  // ── Init ────────────────────────────────────────────────────────────────────
+  refresh();
+</script>
+</body>
+</html>

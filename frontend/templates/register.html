@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TaskFlow · Register</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0a0f; --surface: #111118; --card: #18181f; --border: #2a2a38;
+      --accent: #6c63ff; --accent2: #ff6584; --text: #e8e8f0; --muted: #6b6b80;
+    }
+    body {
+      font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text);
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    }
+    body::before {
+      content: ''; position: fixed; inset: -50%;
+      background: radial-gradient(ellipse at 20% 50%, rgba(108,99,255,.15) 0%, transparent 60%),
+                  radial-gradient(ellipse at 80% 20%, rgba(255,101,132,.1) 0%, transparent 50%);
+      animation: meshMove 8s ease-in-out infinite alternate; pointer-events: none;
+    }
+    @keyframes meshMove { from { transform: translate(0,0); } to { transform: translate(2%,3%); } }
+    .container { position: relative; width: 100%; max-width: 440px; padding: 2rem;
+      animation: slideUp .6s cubic-bezier(.16,1,.3,1); }
+    @keyframes slideUp { from { opacity:0; transform: translateY(30px); } to { opacity:1; transform: translateY(0); } }
+    .brand { text-align: center; margin-bottom: 2rem; }
+    .brand-icon { width:56px; height:56px; background: linear-gradient(135deg,var(--accent),var(--accent2));
+      border-radius:16px; display:inline-flex; align-items:center; justify-content:center;
+      font-size:1.5rem; margin-bottom:1rem; box-shadow:0 0 40px rgba(108,99,255,.4); }
+    .brand h1 { font-family:'Syne',sans-serif; font-weight:800; font-size:1.8rem; letter-spacing:-.02em; }
+    .brand p { color: var(--muted); font-size:.9rem; margin-top:.3rem; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:20px; padding:2rem; }
+    .form-group { margin-bottom:1.2rem; }
+    label { display:block; font-size:.8rem; font-weight:500; color:var(--muted);
+      text-transform:uppercase; letter-spacing:.08em; margin-bottom:.5rem; }
+    input { width:100%; padding:.8rem 1rem; background:var(--surface); border:1px solid var(--border);
+      border-radius:10px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:.95rem;
+      outline:none; transition:border-color .2s, box-shadow .2s; }
+    input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(108,99,255,.15); }
+    .btn { width:100%; padding:.9rem; background:linear-gradient(135deg,var(--accent),#8b82ff);
+      border:none; border-radius:10px; color:#fff; font-family:'Syne',sans-serif; font-weight:700;
+      font-size:1rem; cursor:pointer; letter-spacing:.02em; transition:transform .15s, box-shadow .15s; margin-top:.5rem; }
+    .btn:hover { transform:translateY(-2px); box-shadow:0 8px 25px rgba(108,99,255,.4); }
+    .btn:disabled { opacity:.6; cursor:not-allowed; transform:none; }
+    .error-msg { background:rgba(255,101,132,.1); border:1px solid rgba(255,101,132,.3); color:var(--accent2);
+      padding:.8rem 1rem; border-radius:8px; font-size:.85rem; margin-bottom:1rem; display:none; }
+    .footer-link { text-align:center; margin-top:1.5rem; color:var(--muted); font-size:.88rem; }
+    .footer-link a { color:var(--accent); text-decoration:none; font-weight:500; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="brand">
+    <div class="brand-icon">✦</div>
+    <h1>TaskFlow</h1>
+    <p>Create your free account</p>
+  </div>
+  <div class="card">
+    <div class="error-msg" id="errorMsg"></div>
+    <div class="form-group">
+      <label>Username</label>
+      <input type="text" id="username" placeholder="johndoe">
+    </div>
+    <div class="form-group">
+      <label>Email Address</label>
+      <input type="email" id="email" placeholder="you@example.com">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="password" placeholder="At least 6 characters">
+    </div>
+    <button class="btn" id="regBtn" onclick="handleRegister()">Create Account</button>
+  </div>
+  <p class="footer-link">Already have an account? <a href="/login">Sign in</a></p>
+</div>
+<script>
+  if (localStorage.getItem('token')) window.location.href = '/dashboard';
+
+  async function handleRegister() {
+    const username = document.getElementById('username').value.trim();
+    const email    = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const btn      = document.getElementById('regBtn');
+    const errEl    = document.getElementById('errorMsg');
+    errEl.style.display = 'none';
+
+    if (!username || !email || !password) { showError('All fields are required'); return; }
+
+    btn.disabled = true; btn.textContent = 'Creating account…';
+
+    try {
+      const res  = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(data.error || 'Registration failed'); return; }
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user',  JSON.stringify(data.user));
+      window.location.href = '/dashboard';
+    } catch { showError('Network error. Please try again.'); }
+    finally { btn.disabled = false; btn.textContent = 'Create Account'; }
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('errorMsg');
+    el.textContent = msg; el.style.display = 'block';
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Enter') handleRegister(); });
+</script>
+</body>
+</html>

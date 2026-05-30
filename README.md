@@ -32,6 +32,7 @@ task_manager/
 
 ### 1. Prerequisites
 - Python 3.9+
+- Flask
 - MySQL 5.7+ or 8.x
 
 ### 2. Create & activate a virtual environment
